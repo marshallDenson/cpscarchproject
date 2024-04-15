@@ -1,0 +1,66 @@
+#include <stdlib.h>
+#include <stdio.h>
+#include "gba.h" // header
+
+// Define background tile data
+#include "background_tiles.h"
+
+// Define sprite data
+#include "sprite_data.h"
+
+// Define assembly functions
+extern void assemblyFunction1();
+extern void assemblyFunction2();
+
+int main() {
+    // Initialize GBA
+    initializeGBA();
+
+    // Load background
+    loadBackgroundTiles(backgroundTiles);
+
+    // Load sprites
+    loadSprites(spriteData);
+
+    // Set up scrolling background
+    setScrolling(0, 0); // this is assuming the background will be in the top left corner
+
+    // Main game loop
+    while (1) {
+        // Update game logic
+
+        // Handle input
+
+        // Update sprites
+
+        // Scroll background
+        scrollBackground();
+
+        // Call assembly functions
+        assemblyFunction1();
+        assemblyFunction2();
+
+        // Wait for VBlank
+        waitForVBlank();
+    }
+
+    return 0;
+}
+
+// Assembly function 1
+__asm__(
+".global assemblyFunction1\n"
+"assemblyFunction1:\n"
+"    //  assembly code here\n"
+"    // Make sure it's at least 8 lines long\n"
+"    bx lr\n"
+);
+
+// Assembly function 2
+__asm__(
+".global assemblyFunction2\n"
+"assemblyFunction2:\n"
+"    // assembly code here\n"
+"    // Make sure it's at least 8 lines long\n"
+"    bx lr\n"
+);

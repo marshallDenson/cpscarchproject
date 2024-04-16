@@ -2,10 +2,13 @@
 #include <stdio.h>
 //#include "gba.h" // header
 
-// Define background tile data
+// Define background image
 #include "background.h"
+//define tile maps
 #include "map.h"
 #include "map2.h"
+//define sprite image
+#include "sprite.h"
 // Define sprite data
 //#include "sprite_data.h"
 
@@ -15,7 +18,6 @@
 
 //Define palette size
 #define PALETTE_SIZE 256
-
 //enable palette
 volatile unsigned short* bg_palette = (volatile unsigned short*) 0x5000000;
 
@@ -53,8 +55,30 @@ volatile short* bg3_y_scroll = (unsigned short*) 0x400001e;
 #define SPRITE_MAP_2D 0x0
 #define SPRITE_MAP_1D 0x40
 #define SPRITE_ENABLE 0x1000
-
 #define NUM_SPRITES 128
+
+/* the memory location which controls sprite attributes */
+volatile unsigned short* sprite_attribute_memory = (volatile unsigned short*) 0x7000000;
+
+/* the memory location which stores sprite image data */
+volatile unsigned short* sprite_image_memory = (volatile unsigned short*) 0x6010000;
+volatile unsigned short* sprite_palette = (volatile unsigned short*) 0x5000200;
+
+/* flag for turning on DMA */
+#define DMA_ENABLE 0x80000000
+
+/* flags for the sizes to transfer, 16 or 32 bits */
+#define DMA_16 0x00000000
+#define DMA_32 0x04000000
+
+/* pointer to the DMA source location */
+volatile unsigned int* dma_source = (volatile unsigned int*) 0x40000D4;
+
+/* pointer to the DMA destination location */
+volatile unsigned int* dma_destination = (volatile unsigned int*) 0x40000D8;
+
+/* pointer to the DMA count/control */
+volatile unsigned int* dma_count = (volatile unsigned int*) 0x40000DC;
 
 //define button inputs
 #define BUTTON_A (1 << 0)
@@ -75,6 +99,13 @@ volatile short* bg3_y_scroll = (unsigned short*) 0x400001e;
 extern void assemblyFunction1();
 extern void assemblyFunction2();
 
+/* copy data using DMA */
+void memcpy16_dma(unsigned short* dest, unsigned short* source, int amount) {
+    *dma_source = (unsigned int) source;
+    *dma_destination = (unsigned int) dest;
+    *dma_count = amount | DMA_16 | DMA_ENABLE;
+}
+
 //define scanline counter
 volatile unsigned short* scanline_counter = (volatile unsigned short*) 0x4000006;
 
@@ -94,14 +125,14 @@ volatile unsigned short* screen_block(unsigned long block){
 }
 
 void setup_background(){
-    for(int i = 0; i < PALETTE_SIZE; i++){
-       bg_palette[i] = background_palette[i]; 
-    }  
-    unsigned short* image = (unsigned short*) background_data; 
-    volatile unsigned short* dest = char_block(0);
-    for (int i = 0; i < (background_width * background_height) * 2; i++){
-        dest[i] = image[i];   
-    } 
+
+       /* load the palette from the image into palette memory*/
+    memcpy16_dma((unsigned short*) bg_palette, (unsigned short*) background_palette, PALETTE_SIZE);
+
+    /* load the image into char block 0 */
+    memcpy16_dma((unsigned short*) char_block(0), (unsigned short*) background_data,
+            (background_width * background_height) / 2);
+
     *bg0_control = 1 |
        (0 << 2) | 
        (0 << 6) |
@@ -109,13 +140,8 @@ void setup_background(){
        (16 << 8) |  
        (1 << 13) | 
        (0 << 14);
-        //load tile data into screen block 16
-    dest = screen_block(16);
-    //set dest to screen block 16    
-    for(int i = 0; i < (map_height * map_width); i++){
-       dest[i] = map[i]; 
-    } 
-
+            /* load the tile data into screen block 16 */
+    memcpy16_dma((unsigned short*) screen_block(16), (unsigned short*) map, map_width * map_height);
     *bg1_control = 0 |
         (0 << 2) |
         (0 << 6) |
@@ -123,12 +149,10 @@ void setup_background(){
         (17 << 8) |
         (1 << 13) |
         (0 << 14); 
-        //load tile data into screen block 17
-     dest = screen_block(17);
-     //set dest to screen block 17
-     for(int i = 0; i < (map_height * map_width); i++){
-        dest[i] = map2[i];
-     }   
+        /* load the tile data into screen block 16 */
+    memcpy16_dma((unsigned short*) screen_block(17), (unsigned short*) map2, map_width * map_height);
+
+    /* load the tile data into screen block 16 */
 }
 
 int main() {

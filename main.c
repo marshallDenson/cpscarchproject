@@ -7,7 +7,6 @@
 #include "background.h"
 //define tile maps
 #include "map.h"
-#include "map2.h"
 //define sprite image
 #include "player.h"
 // Define sprite data

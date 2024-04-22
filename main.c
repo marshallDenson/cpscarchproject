@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdbool.h>
 //#include "gba.h" // header
 
 // Define background image
@@ -8,7 +9,7 @@
 #include "map.h"
 #include "map2.h"
 //define sprite image
-#include "koopa.h"
+#include "player.h"
 // Define sprite data
 //#include "sprite_data.h"
 
@@ -260,24 +261,24 @@ void sprite_set_offset(struct Sprite* sprite, int offset) {
 /* setup the sprite image and palette */
 void setup_sprite_image() {
     /* load the palette from the image into palette memory*/
-    memcpy16_dma((unsigned short*) sprite_palette, (unsigned short*) koopa_palette, PALETTE_SIZE);
+    memcpy16_dma((unsigned short*) sprite_palette, (unsigned short*) player_palette, PALETTE_SIZE);
 
     /* load the image into sprite image memory */
-    memcpy16_dma((unsigned short*) sprite_image_memory, (unsigned short*) koopa_data, (koopa_width * koopa_height) / 2);
+    memcpy16_dma((unsigned short*) sprite_image_memory, (unsigned short*) player_data, (player_width * player_height) / 2);
 }
 
-/* a struct for the koopa's logic and behavior */
-struct Koopa {
+/* a struct for the player's logic and behavior */
+struct Player {
     /* the actual sprite attribute info */
     struct Sprite* sprite;
 
     /* the x and y postion in pixels */
     int x, y;
 
-    /* the koopa's y velocity in 1/256 pixels/second */
+    /* the player's y velocity in 1/256 pixels/second */
     int yvel;
 
-    /* the koopa's y acceleration in 1/256 pixels/second^2 */
+    /* the player's y acceleration in 1/256 pixels/second^2 */
     int gravity; 
 
     /* which frame of the animation he is on */
@@ -289,75 +290,75 @@ struct Koopa {
     /* the animation counter counts how many frames until we flip */
     int counter;
 
-    /* whether the koopa is moving right now or not */
+    /* whether the player is moving right now or not */
     int move;
 
-    /* the number of pixels away from the edge of the screen the koopa stays */
+    /* the number of pixels away from the edge of the screen the player stays */
     int border;
 
-    /* if the koopa is currently falling */
+    /* if the player is currently falling */
     int falling;
 };
 
-/* initialize the koopa */
-void koopa_init(struct Koopa* koopa) {
-    koopa->x = 100;
-    koopa->y = 113;
-    koopa->yvel = 0;
-    koopa->gravity = 50;
-    koopa->border = 40;
-    koopa->frame = 0;
-    koopa->move = 0;
-    koopa->counter = 0;
-    koopa->falling = 0;
-    koopa->animation_delay = 8;
-    koopa->sprite = sprite_init(koopa->x, koopa->y, SIZE_16_32, 0, 0, koopa->frame, 0);
+/* initialize the player */
+void player_init(struct Player* player) {
+    player->x = 100;
+    player->y = 113;
+    player->yvel = 0;
+    player->gravity = 50;
+    player->border = 90;
+    player->frame = 0;
+    player->move = 0;
+    player->counter = 0;
+    player->falling = 0;
+    player->animation_delay = 8;
+    player->sprite = sprite_init(player->x, player->y, SIZE_16_32, 0, 0, player->frame, 0);
 }
 
-/* move the koopa left or right returns if it is at edge of the screen */
-int koopa_left(struct Koopa* koopa) {
+/* move the player left or right returns if it is at edge of the screen */
+int player_left(struct Player* player) {
     /* face left */
-    sprite_set_horizontal_flip(koopa->sprite, 1);
-    koopa->move = 1;
+    sprite_set_horizontal_flip(player->sprite, 1);
+    player->move = 1;
 
     /* if we are at the left end, just scroll the screen */
-    if (koopa->x < koopa->border) {
+    if (player->x < player->border) {
         return 1;
     } else {
         /* else move left */
-        koopa->x--;
+        player->x--;
         return 0;
     }
 }
 
-int koopa_right(struct Koopa* koopa) {
+int player_right(struct Player* player) {
     /* face right */
-    sprite_set_horizontal_flip(koopa->sprite, 0);
-    koopa->move = 1;
+    sprite_set_horizontal_flip(player->sprite, 0);
+    player->move = 1;
 
     /* if we are at the right end, just scroll the screen */
-    if (koopa->x > (WIDTH - 16 - koopa->border)) {
+    if (player->x > (WIDTH - 16 - player->border)) {
         return 1;
     } else {
         /* else move right */
-        koopa->x++;
+        player->x++;
         return 0;
     }
 }
 
-/* stop the koopa from walking left/right */
-void koopa_stop(struct Koopa* koopa) {
-    koopa->move = 0;
-    koopa->frame = 0;
-    koopa->counter = 7;
-    sprite_set_offset(koopa->sprite, koopa->frame);
+/* stop the player from walking left/right */
+void player_stop(struct Player* player) {
+    player->move = 0;
+    player->frame = 0;
+    player->counter = 7;
+    sprite_set_offset(player->sprite, player->frame);
 }
 
-/* start the koopa jumping, unless already fgalling */
-void koopa_jump(struct Koopa* koopa) {
-    if (!koopa->falling) {
-        koopa->yvel = -1350;
-        koopa->falling = 1;
+/* start the player jumping, unless already fgalling */
+void player_jump(struct Player* player) {
+    if (!player->falling) {
+        player->yvel = -1350;
+        player->falling = 1;
     }
 }
 
@@ -417,53 +418,53 @@ unsigned short tile_lookup(int x, int y, int xscroll, int yscroll,
     return tilemap[index + offset];
 }
 
-/* update the koopa */
-void koopa_update(struct Koopa* koopa, int xscroll) {
+/* update the player */
+void player_update(struct Player* player, int xscroll) {
     /* update y position and speed if falling */
-    if (koopa->falling) {
-        koopa->y += (koopa->yvel >> 8);
-        koopa->yvel += koopa->gravity;
+    if (player->falling) {
+        player->y += (player->yvel >> 8);
+        player->yvel += player->gravity;
     }
 
-    /* check which tile the koopa's feet are over */
-    unsigned short tile = tile_lookup(koopa->x + 8, koopa->y + 32, xscroll, 0, map,
+    /* check which tile the player's feet are over */
+    unsigned short tile = tile_lookup(player->x + 8, player->y + 32, xscroll, 0, map,
             map_width, map_height);
 
     /* if it's block tile
-     * these numbers refer to the tile indices of the blocks the koopa can walk on */
+     * these numbers refer to the tile indices of the blocks the player can walk on */
     if ((tile >= 1 && tile <= 6) || 
             (tile >= 12 && tile <= 17)) {
         /* stop the fall! */
-        koopa->falling = 0;
-        koopa->yvel = 0;
+        player->falling = 0;
+        player->yvel = 0;
 
         /* make him line up with the top of a block works by clearing out the lower bits to 0 */
-        koopa->y &= ~0x3;
+        player->y &= ~0x3;
 
         /* move him down one because there is a one pixel gap in the image */
-        koopa->y++;
+        player->y++;
 
     } else {
         /* he is falling now */
-        koopa->falling = 1;
+        player->falling = 1;
     }
 
 
     /* update animation if moving */
-    if (koopa->move) {
-        koopa->counter++;
-        if (koopa->counter >= koopa->animation_delay) {
-            koopa->frame = koopa->frame + 16;
-            if (koopa->frame > 16) {
-                koopa->frame = 0;
+    if (player->move) {
+        player->counter++;
+        if (player->counter >= player->animation_delay) {
+            player->frame = player->frame + 16;
+            if (player->frame > 16) {
+                player->frame = 0;
             }
-            sprite_set_offset(koopa->sprite, koopa->frame);
-            koopa->counter = 0;
+            sprite_set_offset(player->sprite, player->frame);
+            player->counter = 0;
         }
     }
 
     /* set on screen position */
-    sprite_position(koopa->sprite, koopa->x, koopa->y);
+    sprite_position(player->sprite, player->x, player->y);
 }
 
 //define scanline counter
@@ -507,76 +508,76 @@ void setup_background(){
     memcpy16_dma((unsigned short*) char_block(0), (unsigned short*) background_data,
             (background_width * background_height) / 2);
 
-    *bg0_control = 1 |
+    *bg0_control = 0 |
        (0 << 2) | 
        (0 << 6) |
        (1 << 7) |
        (16 << 8) |  
        (1 << 13) | 
-       (0 << 14);
-            /* load the tile data into screen block 16 */
+       (1 << 14);
+          
+      /* load the tile data into screen block 16 */
+   
     memcpy16_dma((unsigned short*) screen_block(16), (unsigned short*) map, map_width * map_height);
-    *bg1_control = 0 |
-        (0 << 2) |
-        (0 << 6) |
-        (1 << 7) |
-        (17 << 8) |
-        (1 << 13) |
-        (0 << 14); 
-        /* load the tile data into screen block 16 */
-    memcpy16_dma((unsigned short*) screen_block(17), (unsigned short*) map2, map_width * map_height);
+}
 
-    /* load the tile data into screen block 16 */
+
+/*Used to detect collisions*/
+int get_pos(struct Player* player, bool collision){
+    if(player->x == 135 && player->y==113 && collision == true){ //Detects if player is still on ground when in contact with a block
+      return 1;
+    }else{
+        return 0;
+    }
 }
 
 int main() {
-    *display_control = MODE0 | BG0_ENABLE | BG1_ENABLE | SPRITE_ENABLE | SPRITE_MAP_1D; 
+    *display_control = MODE0 | BG0_ENABLE | SPRITE_ENABLE | SPRITE_MAP_1D; 
     // Load background
     setup_background();
     setup_sprite_image();
     sprite_clear();
-    struct Koopa koopa;
-    koopa_init(&koopa);
+    struct Player player;
+    player_init(&player);
     int xscroll = 0;
-
-    // Load sprites
-
-
+    bool collision = false; //Boolean to detect when a collision is in sync with the player
+    bool start = true; //Boolean to determine if it is the start of the game or not
+    int index = 0; //Index variable to count distance between blocks
+    int counter = 130; //Counter variable to determine if the block and the player are in the same pixel
     // Main game loop
     while (1) {
-        koopa_update(&koopa, xscroll);
+        if(index == 100 && start){ //Used to detect collisions when the game first starts because scrolling is a little different
+            index = 0;
+            collision = true;
+            start = false;
+        }
+        if(index == counter && !start){ //Used to detect if the player comes into contact with one of the blocks on the ground
+            index = 0;
+            collision = true;
+            counter--;
+        }
+        if(counter == 0){ //If counter hits 0 it resets back to 130
+            counter = 130;
+        }
+        player_update(&player, xscroll);
         // Handle input
-        if(button_pressed(BUTTON_RIGHT)){
-            if (koopa_right(&koopa)){
-                xscroll++;
+        player_right(&player);
+        xscroll++;
+        if(get_pos(&player,collision)){
+        while(1){ 
+                player_stop(&player);
             }
-        }else if (button_pressed(BUTTON_LEFT)){
-            if(koopa_left(&koopa)){
-                xscroll--;
-            }
-        }else{
-            koopa_stop(&koopa);
-        }
-        
+        }   
         if (button_pressed(BUTTON_A)){
-            koopa_jump(&koopa);
+            player_jump(&player);
         }
-        
-        // Update sprites
-
-        // Scroll background
-        //scrollBackground();
-
-        // Call assembly functions
-        //assemblyFunction1();
-        //assemblyFunction2();
-
-        // Wait for VBlank
         waitForVBlank();
         *bg0_x_scroll = xscroll;
-        *bg1_x_scroll = xscroll*2;
+        *bg1_x_scroll = xscroll;
         sprite_update_all();
         delay(300);
+        index++;
+        collision = false;
     }
 
     return 0;
